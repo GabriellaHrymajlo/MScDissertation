@@ -699,4 +699,135 @@ avg_by_quintile <- imdschools %>%
 avg_by_quintile
 
 
+write_csv()
+
+write.csv(censusvariables, "standardisedvariables.csv", row.names = FALSE)
+
+sessionInfo()
+
+colnames(schoolswithimd2)
+# Example: Convert character percentages like "42.5%" to numeric 42.5
+schoolswithimd2 <- schoolswithimd2 %>%
+  mutate(
+    PTFSM = as.numeric(gsub("%", "", PTFSM)),
+    PTEAL = as.numeric(gsub("%", "", PTEAL)),
+    PTRWM_EXP = as.numeric(gsub("%", "", PTRWM_EXP)),
+    PTRWM_HIGH = as.numeric(gsub("%", "", PTRWM_HIGH)),
+    ABSENCE_ = as.numeric(gsub("%", "", ABSENCE_))
+  )
+
+
+library(dplyr)
+library(broom)
+
+# Define variable names
+vars <- c("PTFSM", "PTEAL", "PTRWM_EXP", "PTRWM_HIGH", "ABSENCE_")
+
+# Run t-tests in a loop and collect results
+t_test_results <- lapply(vars, function(var) {
+  formula <- as.formula(paste(var, "~ BreakfastClubSchool_"))
+  test <- t.test(formula, data = schoolswithimd2)
+  tidy(test) %>% mutate(variable = var)
+})
+
+# Combine results into a single data frame
+t_test_summary <- bind_rows(t_test_results) %>%
+  select(variable, estimate1, estimate2, statistic, p.value)
+
+print(t_test_summary)
+
+
+
+colnames (schoolswithimd3)
+
+library(dplyr)
+
+schoolswithimd3_summary <- schoolswithimd3 %>%
+  group_by(Quintile) %>%
+  summarise(
+    Total_Pupils = sum(schoolsdata_with_MSOA2021_csv_TOTALPUPILS, na.rm = TRUE)
+  )
+
+print(schoolswithimd3_summary)
+
+library(dplyr)
+
+schoolswithimd3_summary <- schoolswithimd3 %>%
+  group_by(Quintile) %>%
+  summarise(
+    Total_Pupils = sum(TOTALPUPILS, na.rm = TRUE)
+  )
+
+print(schoolswithimd3_summary)
+
+library(dplyr)
+
+schoolswithimd3 <- schoolswithimd3 %>%
+  mutate(
+    TOTALPUPILS = na_if(TOTALPUPILS, "NEW"),   # replace "NEW" with NA
+    TOTALPUPILS = as.numeric(TOTALPUPILS)      # convert to numeric
+  )
+
+schoolswithimd3_summary <- schoolswithimd3 %>%
+  group_by(Quintile) %>%
+  summarise(
+    Total_Pupils = sum(TOTALPUPILS, na.rm = TRUE),
+    Avg_Pupils   = mean(TOTALPUPILS, na.rm = TRUE),
+    n_schools    = n()  # number of schools per quintile
+  )
+
+print(schoolswithimd3_summary)
+
+library(dplyr)
+
+# Clean TOTALPUPILS first (replace "NEW" with NA and convert to numeric)
+schoolswithimd3 <- schoolswithimd3 %>%
+  mutate(
+    TOTALPUPILS = na_if(TOTALPUPILS, "NEW"),
+    TOTALPUPILS = as.numeric(TOTALPUPILS)
+  )
+
+# Summarise by Quintile and Breakfast Club status
+schoolswithimd3_summary <- schoolswithimd3 %>%
+  group_by(Quintile, BreakfastClubSchool_) %>%
+  summarise(
+    Total_Pupils = sum(TOTALPUPILS, na.rm = TRUE),
+    Avg_Pupils   = mean(TOTALPUPILS, na.rm = TRUE),
+    n_schools    = n(),
+    .groups = "drop"
+  )
+
+print(schoolswithimd3_summary)
+colnames (stand_variables)
+
+library(dplyr)
+
+schoolswithimd3_joined <- schoolswithimd3 %>%
+  left_join(
+    stand_variables %>% select(MSOA2021CD, cluster),  # only keep needed columns
+    by = c("MSOA21CD" = "MSOA2021CD")
+  )
+
+# Check result
+colnames(schoolswithimd3_joined)
+
+library(dplyr)
+
+# Convert TOTALPUPILS to numeric (if not already)
+schoolswithimd3_joined <- schoolswithimd3_joined %>%
+  mutate(TOTALPUPILS = as.numeric(TOTALPUPILS))
+
+# Summarise by cluster
+pupils_by_cluster <- schoolswithimd3_joined %>%
+  group_by(cluster) %>%
+  summarise(
+    Total_Pupils = sum(TOTALPUPILS, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+print(pupils_by_cluster)
+
+
+
+
 
