@@ -648,3 +648,55 @@ ggplot(msoa_cluster_map) +
 ggsave("cluster_map.png", width = 12, height = 10, dpi = 300, bg = "white")
 
 
+# Descriptive Statistics
+
+colnames (imdschools)
+
+# List of columns you want to clean
+cols_to_clean <- c(
+  "schoolsdata_with_MSOA2021_csv_PTFSM",
+  "schoolsdata_with_MSOA2021_csv_PTEAL",
+  "schoolsdata_with_MSOA2021_csv_PTRWM_EXP",
+  "schoolsdata_with_MSOA2021_csv_PTRWM_HIGH",
+  "schoolsdata_with_MSOA2021_csv_ABSENCE_"
+)
+
+# Remove % and convert to numeric
+imdschools[cols_to_clean] <- lapply(df[cols_to_clean], function(x) as.numeric(gsub("%", "", x)))
+
+# List of columns you want to clean
+cols_to_clean <- c(
+  "schoolsdata_with_MSOA2021_csv_PTFSM",
+  "schoolsdata_with_MSOA2021_csv_PTEAL",
+  "schoolsdata_with_MSOA2021_csv_PTRWM_EXP",
+  "schoolsdata_with_MSOA2021_csv_PTRWM_HIGH",
+  "schoolsdata_with_MSOA2021_csv_ABSENCE_"
+)
+
+# Remove % and convert to numeric
+imdschools[cols_to_clean] <- lapply(imdschools[cols_to_clean], function(x) as.numeric(gsub("%", "", x)))
+
+library(dplyr)
+
+# Clean the % columns first
+cols_to_clean <- c(
+  "schoolsdata_with_MSOA2021_csv_PTFSM",
+  "schoolsdata_with_MSOA2021_csv_PTEAL",
+  "schoolsdata_with_MSOA2021_csv_PTRWM_EXP",
+  "schoolsdata_with_MSOA2021_csv_PTRWM_HIGH",
+  "schoolsdata_with_MSOA2021_csv_ABSENCE_"
+)
+
+imdschools[cols_to_clean] <- lapply(imdschools[cols_to_clean], function(x) as.numeric(gsub("%", "", x)))
+
+library(dplyr)
+
+# Group by Quintile and get averages
+avg_by_quintile <- imdschools %>%
+  group_by(Quintile) %>%
+  summarise(across(all_of(cols_to_clean), ~ mean(.x, na.rm = TRUE)))
+
+avg_by_quintile
+
+
+
