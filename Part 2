@@ -528,46 +528,6 @@ tmap_save(
 )
 
 
-# Geodemographic Classification
-
-censusvariables <- read.csv("variables/censusvariables.csv")
-
-
-# Standardising Variables for Clustering
-columns_to_scale <- c("eal", "no_quals", "no_degree", "loneparents", "limitinghealth", "nocaraccess", "socialrented", "unemployment")
-
-for (col_name in columns_to_scale) {
-  column_data <- censusvariables[[col_name]]
-  if (!is.numeric(column_data)) column_data <- as.numeric(unlist(column_data))
-  censusvariables[[paste0(col_name, "_scaled")]] <- scale(column_data)
-}
-
-scaled_columns <- paste0(columns_to_scale, "_scaled")
-stand_variables <- censusvariables[, c("MSOA2021CD", scaled_columns), drop = FALSE]
-
-# K-means Clustering
-
-clustering_input <- stand_variables[, -1]
-Km <- kmeans(clustering_input, centers = 5, nstart = 25, iter.max = 100)
-print(Km$cluster)
-
-stand_variables$cluster <- Km$cluster
-centers_df <- as.data.frame(Km$centers)
-centers_df$cluster <- rownames(Km$centers)
-
-library(dplyr)
-
-
-# Cluster Counts
-cluster_counts <- stand_variables %>%
-  group_by(cluster) %>%
-  summarise(msoa_count = n(), .groups = "drop")
-
-print(cluster_counts)
-write.csv(round(cluster_counts, 2), "cluster_counts.csv")
-          
-library(tidyr)
-library(ggplot2)
 
 
 # Cluster Profile Plot (Z-Scores)
