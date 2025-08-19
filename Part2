@@ -1,0 +1,690 @@
+
+# WD Set to within 'geodemclass' folder for Organisational purposes
+
+# Install required packages
+install.packages("readr")
+install.packages("tidyverse")
+
+
+# Read in packages
+library(dplyr)
+library(readr)
+library(tidyverse)
+
+
+# Read each CSV
+eal            <- read_csv("eal.csv")
+education      <- read_csv("education.csv")
+loneparent     <- read_csv("loneparent.csv")
+longtermhealth <- read_csv("longtermhealth.csv")
+nocaraccess    <- read_csv("nocaraccess.csv")
+socialhousing  <- read_csv("socialhousing.csv")
+unemployment   <- read_csv("unemployment.csv")
+
+
+
+# Join files into one df (anchoring on 'eal')
+censusvariables <- eal %>%
+  
+  left_join(education,      by = "MSOA2021CD") %>%
+  left_join(loneparent,     by = "MSOA2021CD") %>%
+  left_join(longtermhealth, by = "MSOA2021CD") %>%
+  left_join(nocaraccess,    by = "MSOA2021CD") %>%
+  left_join(socialhousing,  by = "MSOA2021CD") %>%
+  left_join(unemployment,   by = "MSOA2021CD")
+
+# Save to file for future use 
+write.csv(censusvariables, "censusvariables.csv", row.names = FALSE)
+
+
+# Load packages
+library(corrplot)
+library(GGally)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(readr)
+library(tidyverse)
+
+# Correlation Matrix #1
+vars_for_corr <- censusvariables %>%
+  select(eal, no_quals, no_degree, loneparents, limitinghealth, nocaraccess, socialrented, unemployment)
+
+correlation_matrix <- cor(vars_for_corr, use = "complete.obs")
+print(round(correlation_matrix, 2))
+write.csv(round(correlation_matrix, 2), "correlation_matrix.csv")
+
+# Correlation Matrix #2 (Visual)
+X <- censusvariables %>%
+  select(
+    `% English as Additional Language` = eal,
+    `% No Qualifications` = no_quals,
+    `% No Degree` = no_degree,
+    `% Lone Parents` = loneparents,
+    `% Limiting Health` = limitinghealth,
+    `% No Car Access` = nocaraccess,
+    `% Social Rented` = socialrented,
+    `% Unemployed` = unemployment
+  )
+
+cor.matrix <- ggpairs(
+  X,
+  title = "Correlation Matrix",
+  upper = list(continuous = wrap('cor', size = 6, stars = TRUE)),
+  lower = list(continuous = wrap("points", alpha = 0.3, size = 0.5)),
+  diag = list(continuous = wrap("densityDiag", alpha = 0.5)),
+  labeller = label_wrap_gen(20)
+) + theme(
+  strip.text.x = element_text(size = 12),
+  strip.text.y = element_text(size = 12),
+  axis.text.x = element_text(size = 10, angle = 45, hjust = 1),
+  axis.text.y = element_text(size = 10),
+  plot.title = element_text(size = 18, hjust = 0.5)
+)
+
+ggsave(
+  filename = "Outputs/Educational_Vulnerability_Correlation_Matrix.png",
+  plot = cor.matrix,
+  width = 14,
+  height = 14,
+  dpi = 600,
+  bg = "white"
+)
+
+# Map all chosen census variables
+library(sf)
+
+# Join data to MSOA boundaries
+
+#Read in MSOA boundaries and census variables
+msoa_boundaries <- st_read("EnglandMSOAs/England_MSOA_2021.shp")
+censusvariables <- read_csv("censusvariables.csv")
+
+# Get colnames for joining 
+colnames(msoa_boundaries)
+colnames(censusvariables)
+
+library(sf)
+library(dplyr)
+
+# Join the spatial data with census variables
+censusdatageom <- msoa_boundaries %>%
+  left_join(censusvariables, by = c("MSOA21CD" = "MSOA2021CD"))
+
+library(sf)
+library(tmap)
+
+tmap_mode("plot")
+
+# Read the shapefile
+censusdatageom <- st_read("censusdatageom.shp")
+
+# EAL Map
+
+ealmap <- tm_shape(censusdatageom) +
+  tm_fill(
+    fill = "eal",
+    fill.scale = tm_scale_intervals(style = "quantile", values = "brewer.blues"),
+    fill.legend = tm_legend(
+      title = "EAL (%)",
+      frame = FALSE,          
+      bg.color = NA         
+    )
+  ) +
+  tm_layout(
+      main.title = "English as an Additional Language per MSOA in England",
+      main.title.position = "center",
+      main.title.size = 1.2,
+      frame = FALSE,
+      legend.outside = TRUE,
+      legend.position = c(0.15,0.8),
+      legend.text.size = 0.7,
+      legend.title.size = 0.85,
+      legend.frame = FALSE,
+      legend.bg.color = NA,
+      inner.margins = c(0.15, 0.15, 0.02, 0.02),
+      outer.margins = c(0.12, 0, 0, 0),
+      bg.color = "white"
+    )+
+  tm_scalebar(
+    position = c(0.85, 0.20),        # Custom position closer to map (x, y coordinates)
+    text.size = 0.55,
+    breaks = c(0, 50, 100, 150)
+  ) +
+  tm_compass(
+    position = c("right", "top"),
+    size = 1.5
+  ) +
+  tm_credits(
+    text = "",
+    position = c("center", "bottom")
+  )
+
+# Save it 
+tmap_save(
+  tm = ealmap,                         # Your map object
+  filename = "EAL_map.png",         # Name and format
+  width = 10,                       # Width in inches
+  height = 8,                       # Height in inches
+  dpi = 300                         # Resolution: 300 is print-quality
+)
+
+
+# No Quals
+
+noquals <- tm_shape(censusdatageom) +
+  tm_fill(
+    fill = "no_quls",
+    fill.scale = tm_scale_intervals(style = "quantile", values = "brewer.blues"),
+    fill.legend = tm_legend(
+      title = "No Qualifications (%)",
+      frame = FALSE,          
+      bg.color = NA         
+    )
+  ) +
+  tm_layout(
+    main.title = "No Qualifications per MSOA in England",
+    main.title.position = "center",
+    main.title.size = 1.2,
+    frame = FALSE,
+    legend.outside = TRUE,
+    legend.position = c(0.15,0.8),
+    legend.text.size = 0.7,
+    legend.title.size = 0.85,
+    legend.frame = FALSE,
+    legend.bg.color = NA,
+    inner.margins = c(0.15, 0.15, 0.02, 0.02),
+    outer.margins = c(0.12, 0, 0, 0),
+    bg.color = "white"
+  )+
+  tm_scalebar(
+    position = c(0.85, 0.20),        # Custom position closer to map (x, y coordinates)
+    text.size = 0.55,
+    breaks = c(0, 50, 100, 150)
+  ) +
+  tm_compass(
+    position = c("right", "top"),
+    size = 1.5
+  ) +
+  tm_credits(
+    text = "",
+    position = c("center", "bottom")
+  )
+
+# Save it 
+tmap_save(
+  tm = noquals,                         # Your map object
+  filename = "noquals2_map.png",         # Name and format
+  width = 10,                       # Width in inches
+  height = 8,                       # Height in inches
+  dpi = 300                         # Resolution: 300 is print-quality
+)
+
+
+
+# No Degree
+
+nodegree <- tm_shape(censusdatageom) +
+  tm_fill(
+    fill = "no_degr",
+    fill.scale = tm_scale_intervals(style = "quantile", values = "brewer.blues"),
+    fill.legend = tm_legend(
+      title = "No Level 4 or\nabove Qualification (%)",
+      frame = FALSE,          
+      bg.color = NA         
+    )
+  ) +
+  tm_layout(
+    main.title = "No Level 4 or above Qualification per MSOA in England",
+    main.title.position = "center",
+    main.title.size = 1.2,
+    frame = FALSE,
+    legend.outside = TRUE,
+    legend.position = c(0.15,0.8),
+    legend.text.size = 0.7,
+    legend.title.size = 0.85,
+    legend.frame = FALSE,
+    legend.bg.color = NA,
+    inner.margins = c(0.15, 0.15, 0.02, 0.02),
+    outer.margins = c(0.12, 0, 0, 0),
+    bg.color = "white"
+  )+
+  tm_scalebar(
+    position = c(0.85, 0.20),        # Custom position closer to map (x, y coordinates)
+    text.size = 0.55,
+    breaks = c(0, 50, 100, 150)
+  ) +
+  tm_compass(
+    position = c("right", "top"),
+    size = 1.5
+  ) +
+  tm_credits(
+    text = "",
+    position = c("center", "bottom")
+  )
+
+# Save it 
+tmap_save(
+  tm = nodegree,                         # Your map object
+  filename = "nodegree_map.png",         # Name and format
+  width = 10,                       # Width in inches
+  height = 8,                       # Height in inches
+  dpi = 300                         # Resolution: 300 is print-quality
+)
+
+
+# Lone Parents
+
+loneparents <- tm_shape(censusdatageom) +
+  tm_fill(
+    fill = "lnprnts",
+    fill.scale = tm_scale_intervals(style = "quantile", values = "brewer.blues"),
+    fill.legend = tm_legend(
+      title = "Lone Parent \nHouseholds (%)",
+      frame = FALSE,          
+      bg.color = NA         
+    )
+  ) +
+  tm_layout(
+    main.title = "Lone Parents Households per MSOA in England",
+    main.title.position = "center",
+    main.title.size = 1.2,
+    frame = FALSE,
+    legend.outside = TRUE,
+    legend.position = c(0.15,0.8),
+    legend.text.size = 0.7,
+    legend.title.size = 0.85,
+    legend.frame = FALSE,
+    legend.bg.color = NA,
+    inner.margins = c(0.15, 0.15, 0.02, 0.02),
+    outer.margins = c(0.12, 0, 0, 0),
+    bg.color = "white"
+  )+
+  tm_scalebar(
+    position = c(0.85, 0.20),        # Custom position closer to map (x, y coordinates)
+    text.size = 0.55,
+    breaks = c(0, 50, 100, 150)
+  ) +
+  tm_compass(
+    position = c("right", "top"),
+    size = 1.5
+  ) +
+  tm_credits(
+    text = "",
+    position = c("center", "bottom")
+  )
+
+# Save it 
+tmap_save(
+  tm = loneparents,                         # Your map object
+  filename = "loneparents_map.png",         # Name and format
+  width = 10,                       # Width in inches
+  height = 8,                       # Height in inches
+  dpi = 300                         # Resolution: 300 is print-quality
+)
+
+
+# Limiting Health
+
+limitinghealth <- tm_shape(censusdatageom) +
+  tm_fill(
+    fill = "lmtnghl",
+    fill.scale = tm_scale_intervals(style = "quantile", values = "brewer.blues"),
+    fill.legend = tm_legend(
+      title = "Life Limiting \nHealth Problems (%)",
+      frame = FALSE,          
+      bg.color = NA         
+    )
+  ) +
+  tm_layout(
+    main.title = "Life Limiting Health Problems per MSOA in England",
+    main.title.position = "center",
+    main.title.size = 1.2,
+    frame = FALSE,
+    legend.outside = TRUE,
+    legend.position = c(0.15,0.8),
+    legend.text.size = 0.7,
+    legend.title.size = 0.85,
+    legend.frame = FALSE,
+    legend.bg.color = NA,
+    inner.margins = c(0.15, 0.15, 0.02, 0.02),
+    outer.margins = c(0.12, 0, 0, 0),
+    bg.color = "white"
+  )+
+  tm_scalebar(
+    position = c(0.85, 0.20),        # Custom position closer to map (x, y coordinates)
+    text.size = 0.55,
+    breaks = c(0, 50, 100, 150)
+  ) +
+  tm_compass(
+    position = c("right", "top"),
+    size = 1.5
+  ) +
+  tm_credits(
+    text = "",
+    position = c("center", "bottom")
+  )
+
+# Save it 
+tmap_save(
+  tm = limitinghealth,                         # Your map object
+  filename = "censusmaps/limitinghealths_map.png",         # Name and format
+  width = 10,                       # Width in inches
+  height = 8,                       # Height in inches
+  dpi = 300                         # Resolution: 300 is print-quality
+)
+
+
+# No Car Access
+
+nocar <- tm_shape(censusdatageom) +
+  tm_fill(
+    fill = "ncrccss",
+    fill.scale = tm_scale_intervals(style = "quantile", values = "brewer.blues"),
+    fill.legend = tm_legend(
+      title = "No Car Access (%)",
+      frame = FALSE,          
+      bg.color = NA         
+    )
+  ) +
+  tm_layout(
+    main.title = "Households Without Car Access by MSOA in England",
+    main.title.position = "center",
+    main.title.size = 1.2,
+    frame = FALSE,
+    legend.outside = TRUE,
+    legend.position = c(0.15,0.8),
+    legend.text.size = 0.7,
+    legend.title.size = 0.85,
+    legend.frame = FALSE,
+    legend.bg.color = NA,
+    inner.margins = c(0.15, 0.15, 0.02, 0.02),
+    outer.margins = c(0.12, 0, 0, 0),
+    bg.color = "white"
+  )+
+  tm_scalebar(
+    position = c(0.85, 0.20),        # Custom position closer to map (x, y coordinates)
+    text.size = 0.55,
+    breaks = c(0, 50, 100, 150)
+  ) +
+  tm_compass(
+    position = c("right", "top"),
+    size = 1.5
+  ) +
+  tm_credits(
+    text = "",
+    position = c("center", "bottom")
+  )
+
+# Save it 
+tmap_save(
+  tm = nocar,                         # Your map object
+  filename = "censusmaps/nocar_map.png",         # Name and format
+  width = 10,                       # Width in inches
+  height = 8,                       # Height in inches
+  dpi = 300                         # Resolution: 300 is print-quality
+)
+
+
+# Social Rented
+
+socialrented <- tm_shape(censusdatageom) +
+  tm_fill(
+    fill = "sclrntd",
+    fill.scale = tm_scale_intervals(style = "quantile", values = "brewer.blues"),
+    fill.legend = tm_legend(
+      title = "Social Rented\nHousing (%)",
+      frame = FALSE,          
+      bg.color = NA         
+    )
+  ) +
+  tm_layout(
+    main.title = "Social Rented Households per MSOA in England",
+    main.title.position = "center",
+    main.title.size = 1.2,
+    frame = FALSE,
+    legend.outside = TRUE,
+    legend.position = c(0.15,0.8),
+    legend.text.size = 0.7,
+    legend.title.size = 0.85,
+    legend.frame = FALSE,
+    legend.bg.color = NA,
+    inner.margins = c(0.15, 0.15, 0.02, 0.02),
+    outer.margins = c(0.12, 0, 0, 0),
+    bg.color = "white"
+  )+
+  tm_scalebar(
+    position = c(0.85, 0.20),        # Custom position closer to map (x, y coordinates)
+    text.size = 0.55,
+    breaks = c(0, 50, 100, 150)
+  ) +
+  tm_compass(
+    position = c("right", "top"),
+    size = 1.5
+  ) +
+  tm_credits(
+    text = "",
+    position = c("center", "bottom")
+  )
+
+# Save it 
+tmap_save(
+  tm = socialrented,                         # Your map object
+  filename = "censusmaps/socialrented_map.png",         # Name and format
+  width = 10,                       # Width in inches
+  height = 8,                       # Height in inches
+  dpi = 300                         # Resolution: 300 is print-quality
+)
+
+
+# Unemployment
+
+unemployed <- tm_shape(censusdatageom) +
+  tm_fill(
+    fill = "unmplym",
+    fill.scale = tm_scale_intervals(style = "quantile", values = "brewer.blues"),
+    fill.legend = tm_legend(
+      title = "Unemployment Rate (%)",
+      frame = FALSE,          
+      bg.color = NA         
+    )
+  ) +
+  tm_layout(
+    main.title = "Unemployment Rates per MSOA in England",
+    main.title.position = "center",
+    main.title.size = 1.2,
+    frame = FALSE,
+    legend.outside = TRUE,
+    legend.position = c(0.15,0.8),
+    legend.text.size = 0.7,
+    legend.title.size = 0.85,
+    legend.frame = FALSE,
+    legend.bg.color = NA,
+    inner.margins = c(0.15, 0.15, 0.02, 0.02),
+    outer.margins = c(0.12, 0, 0, 0),
+    bg.color = "white"
+  )+
+  tm_scalebar(
+    position = c(0.85, 0.20),        # Custom position closer to map (x, y coordinates)
+    text.size = 0.55,
+    breaks = c(0, 50, 100, 150)
+  ) +
+  tm_compass(
+    position = c("right", "top"),
+    size = 1.5
+  ) +
+  tm_credits(
+    text = "",
+    position = c("center", "bottom")
+  )
+
+# Save it 
+tmap_save(
+  tm = unemployed,                         # Your map object
+  filename = "censusmaps/unemployed_map.png",         # Name and format
+  width = 10,                       # Width in inches
+  height = 8,                       # Height in inches
+  dpi = 300                         # Resolution: 300 is print-quality
+)
+
+
+# Geodemographic Classification
+
+censusvariables <- read.csv("variables/censusvariables.csv")
+
+
+# Standardising Variables for Clustering
+columns_to_scale <- c("eal", "no_quals", "no_degree", "loneparents", "limitinghealth", "nocaraccess", "socialrented", "unemployment")
+
+for (col_name in columns_to_scale) {
+  column_data <- censusvariables[[col_name]]
+  if (!is.numeric(column_data)) column_data <- as.numeric(unlist(column_data))
+  censusvariables[[paste0(col_name, "_scaled")]] <- scale(column_data)
+}
+
+scaled_columns <- paste0(columns_to_scale, "_scaled")
+stand_variables <- censusvariables[, c("MSOA2021CD", scaled_columns), drop = FALSE]
+
+# K-means Clustering
+
+clustering_input <- stand_variables[, -1]
+Km <- kmeans(clustering_input, centers = 5, nstart = 25, iter.max = 100)
+print(Km$cluster)
+
+stand_variables$cluster <- Km$cluster
+centers_df <- as.data.frame(Km$centers)
+centers_df$cluster <- rownames(Km$centers)
+
+library(dplyr)
+
+
+# Cluster Counts
+cluster_counts <- stand_variables %>%
+  group_by(cluster) %>%
+  summarise(msoa_count = n(), .groups = "drop")
+
+print(cluster_counts)
+write.csv(round(cluster_counts, 2), "cluster_counts.csv")
+          
+library(tidyr)
+library(ggplot2)
+
+
+# Cluster Profile Plot (Z-Scores)
+long_data <- stand_variables %>%
+  pivot_longer(cols = grep("_scaled$", names(.), value = TRUE), names_to = "variable", values_to = "value")
+
+
+cluster_summary <- long_data %>%
+  group_by(cluster, variable) %>%
+  summarise(mean_z = round(mean(value, na.rm = TRUE), 2), .groups = "drop")
+
+ggplot(cluster_summary, aes(x = factor(cluster), y = mean_z, fill = variable)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Mean Z-Scores by Cluster", x = "Cluster", y = "Mean Z-Score", fill = "Variable") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(size = 12),
+    axis.text.y = element_text(size = 11),
+    legend.title = element_text(face = "bold"),
+    legend.text = element_text(size = 10)
+  )
+
+# ---- Final Profile Plot (Cleaner version using cluster centers) ----
+centers_long <- centers_df %>%
+  pivot_longer(cols = -cluster, names_to = "variable", values_to = "mean_z") %>%
+  mutate(cluster = factor(cluster, levels = sort(unique(cluster))))
+
+# Save Clusters 
+write.csv(stand_variables, "stand_variables.csv", row.names = FALSE)
+
+
+
+library(ggplot2)
+library(RColorBrewer)
+
+
+# Descriptive labels for variables
+variable_labels <- c(
+  eal_scaled = "English as an Additional Language (%)",
+  no_quals_scaled = "No Qualifications (%)",
+  no_degree_scaled = "No Degree (%)",
+  loneparents_scaled = "Lone Parents (%)",
+  limitinghealth_scaled = "Long term or life limiting illness (%)",
+  nocaraccess_scaled = "No Car Access (%)",
+  socialrented_scaled = "Social Rented Housing (%)",
+  unemployment_scaled = "Unemployment Rate (%)"
+)
+
+# Cluster names formatted with line breaks
+cluster_labels <- c(
+  "Cluster 1" = "Multi-Barrier\nHouseholds",
+  "Cluster 2" = "Emerging\nUrban\nOpportunity",
+  "Cluster 3" = "Widespread\nDeprivation\nImpact",
+  "Cluster 4" = "Quiet\nEducational\nStrain",
+  "Cluster 5" = "Low-risk\nEducational\nEnvironment"
+)
+
+# Apply formatted cluster names
+centers_long$cluster <- factor(centers_long$cluster,
+                               levels = c(1, 2, 3, 4, 5),
+                               labels = cluster_labels)
+
+# Final plot
+cluster_plot <- ggplot(centers_long, aes(x = cluster, y = mean_z, fill = variable)) +
+  geom_bar(
+    stat = "identity",
+    position = position_dodge(width = 0.8),
+    width = 0.6
+  ) +
+  labs(
+    title = "Educational Vulnerability Profiles by Cluster",
+    x = "Cluster",
+    y = "Mean Z-Score",
+    fill = "Variable"
+  ) +
+  scale_fill_brewer(
+    palette = "Dark2",
+    labels = variable_labels,
+    breaks = names(variable_labels)
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(face = "bold", size = 12, angle = 0, vjust = 0.5),
+    axis.text.y = element_text(size = 11),
+    axis.title.x = element_text(margin = margin(t = 20)),  # t = top margin in pts
+    legend.title = element_text(face = "bold"),
+    legend.text = element_text(size = 10),
+    plot.title = element_text(face = "bold", size = 14, hjust = 0.5)
+  )
+
+ggsave(
+  filename = "educational_profiles.png",  # Output file name
+  plot = cluster_plot,                     # or use your object, e.g., plot = my_plot
+  width = 10,                             # Width in inches
+  height = 8,                             # Height in inches
+  dpi = 300,
+  bg = "white" # High resolution
+)
+
+# Plot the Clusters 
+
+msoa <- st_read("EnglandMSOAs/England_MSOA_2021.shp")
+
+stand_variables$MSOA2021CD <- as.character(stand_variables$MSOA2021CD)
+msoa$MSOA21CD <- as.character(msoa$MSOA21CD)
+
+msoa_cluster_map <- msoa %>%
+  left_join(stand_variables, by = c("MSOA21CD" = "MSOA2021CD"))
+ggplot(msoa_cluster_map) +
+  geom_sf(aes(fill = factor(cluster)), color = NA) +
+  scale_fill_brewer(palette = "Set3", name = "Cluster") +
+  labs(
+    title = "Geodemographic Clusters by MSOA",
+    caption = "Source: Census & K-Means Clustering"
+  ) +
+  theme_minimal()
+
+ggsave("cluster_map.png", width = 12, height = 10, dpi = 300, bg = "white")
+
+
