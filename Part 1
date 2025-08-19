@@ -1,0 +1,367 @@
+# Mapping BCS and Non BCS
+
+# Install packages
+install.packages("sf")
+install.packages("tmap")
+
+# Load packages
+library(sf)
+library(tmap)
+
+# Read in data 
+regions <- st_read("regionsboundaries/RGN_DEC_24_EN_BFC.shp")
+
+bcs_points <- st_read("BCS Points/BCS Points.shp")
+
+non_bcs_points <- st_read("Non BCS Points/Non BCS Points.shp")
+
+# Check CRS
+st_crs(regions)
+st_crs(bcs_points)
+st_crs(non_bcs_points)
+
+# Transform CRS
+bcs_points <- st_transform(bcs_points, 27700)
+non_bcs_points <- st_transform(non_bcs_points, 27700)
+
+# Check they are correct 
+st_crs(bcs_points)
+st_crs(non_bcs_points)
+
+
+library(tmap)
+library(grid)
+
+# Set tmap mode
+tmap_mode("plot")
+
+
+# Map with Non-Breakfast Club Schools + Title + Legend
+map_non_bcs <- 
+  tm_title("Non-Breakfast Club Schools", position = c("center", "top"), size = 1.2) +  # 🌟 Embedded title
+  tm_shape(regions) +
+  tm_fill(col = NULL, fill = "#EDEADE") +
+  tm_borders(col = "grey30", lwd = 0.2) +
+  tm_layout(
+    frame = FALSE,
+    legend.outside = FALSE,
+    legend.position = c("left", "center"),
+    legend.title.size = 0.8,
+    legend.text.size = 0.8,
+    legend.frame = FALSE,
+    legend.bg.color = NA,
+    legend.bg.alpha = 0,
+    outer.margins = c(0.25, 0, 0, 0),  # ↗️ Extra space for title
+    inner.margins = c(0.02, 0.02, 0.02, 0.02)
+  ) +
+  tm_scalebar(position = c("right", "bottom"),
+              text.size = 0.6,
+              breaks = c(0, 50, 100, 150)) +
+  tm_compass(position = c("right", "top"), size = 2) +
+  tm_credits("", position = c("center", "bottom")) +
+  tm_shape(non_bcs_points) +
+  tm_dots(col = "#E69F00", size = 0.1, border.col = "black", border.lwd = 0.1) + 
+  tm_add_legend(type = "symbol", 
+                col = "#E69F00",
+                labels = "Non-Breakfast Club",
+                shape = 19,
+                size = 0.3,
+                title = "School Type")
+
+# Map with Breakfast Club Schools + Title + Legend
+map_bcs <- 
+  tm_title("Breakfast Club Schools", position = c("center", "top"), size = 1.2) +
+  tm_shape(regions) +
+  tm_fill(col = NULL, fill = "#EDEADE") +
+  tm_borders(col = "grey30", lwd = 0.2) +
+  tm_layout(
+    frame = FALSE,
+    legend.outside = FALSE,
+    legend.position = c("left", "center"),
+    legend.title.size = 0.8,
+    legend.text.size = 0.8,
+    legend.frame = FALSE,
+    legend.bg.color = NA,
+    legend.bg.alpha = 0,
+    outer.margins = c(0.25, 0, 0, 0),
+    inner.margins = c(0.02, 0.02, 0.02, 0.02)
+  ) +
+  tm_scalebar(position = c("right", "bottom"),
+              text.size = 0.6,
+              breaks = c(0, 50, 100, 150)) +
+  tm_compass(position = c("right", "top"), size = 2) +
+  tm_credits("", position = c("center", "bottom")) +
+  tm_shape(bcs_points) +
+  tm_dots(col = "#327CA1", size = 0.1, border.col = "black", border.lwd = 0.1) + 
+  tm_add_legend(type = "symbol", 
+                col = "#327CA1",
+                labels = "Breakfast Club",
+                shape = 19,
+                size = 0.3,
+                title = "School Type")
+
+# Combine maps
+combo_map <- tmap_arrange(map_non_bcs, map_bcs, ncol = 2)
+
+# Plot the final result
+print(combo_map)
+
+# Save the output 
+tmap_save(combo_map,
+          filename = "distribution2.png",
+          width = 12, height = 8, units = "in",
+          dpi = 300)
+
+
+
+# Distribution within IMD Deciles between BCS and Non-BCS
+
+# Read in dataset
+schoolsimd3 <- read.csv("schoolswithimd3.csv")
+
+# Get colnames 
+colnames(schoolsimd2)
+
+# Install packages
+install.packages("dplyr")
+install.packages("ggplot2")
+
+library(dplyr)
+library(ggplot2)
+
+
+# Create clean labels for breakfast club status
+schoolsimd3 <- schoolsimd3 %>%
+  mutate(BCS = ifelse(BreakfastClubSchool_ == 1, "Breakfast Club", "Non-Breakfast Club"))
+
+# Calculate percentage breakdown within each group (BCS)
+schoolsimd_summary <- schoolsimd3 %>%
+  group_by(BCS, Quintile) %>%
+  summarise(count = n(), .groups = "drop") %>%
+  group_by(BCS) %>%
+  mutate(percent = count / sum(count) * 100)
+
+# Create ggplot
+imd_plot <- ggplot(schoolsimd_summary, aes(x = factor(Quintile), y = percent, fill = BCS)) +
+  geom_bar(stat = "identity", position = "dodge", colour = "black") +
+  scale_fill_manual(values = c("Breakfast Club" = "#327CA1",
+                               "Non-Breakfast Club" = "#E69F00")) +
+  labs(x = "IMD Quintile (1 = Most deprived, 5 = Least deprived)", 
+       y = "Percentage of Schools (%)",
+       fill = "School Type",
+       title = "Percentage of Schools by IMD Quintile") +
+  theme_minimal(base_size = 12) +
+  theme(
+    legend.position = "top",
+    legend.title = element_text(size = 10),
+    legend.text = element_text(size = 10),
+    plot.title = element_text(size = 14, hjust = 0.5),  # Centered
+    axis.line = element_blank(),      # Remove axis lines
+    axis.ticks = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+    
+  )
+
+# Export the plot with white background
+ggsave("imd_quintile_distribution.png",
+       plot = imd_plot,
+       width = 10, height = 6,
+       units = "in",
+       dpi = 300,
+       bg = "white")
+
+
+# Looking at school statistics between BCS and Non BCS
+
+# Read in Schools data
+schoolsimd3 <- read.csv("schoolswithimd3.csv")
+
+# Provide Col Names
+colnames(schoolsimd3)
+
+# Create cleaning function
+clean_percent <- function(x) {
+  x <- as.character(x)
+  x[x %in% c("SUPP", "N/A", "", "..")] <- NA  # convert known non-numeric entries to NA
+  x <- gsub("%", "", x)                       # remove %
+  x <- gsub("[^0-9.]", "", x)                 # strip all non-numeric chars except dot
+  as.numeric(x)
+}
+
+# Apply function
+schoolsimd3 <- schoolsimd3 %>%
+  mutate(
+    PTFSM = clean_percent(PTFSM),
+    PTEAL = clean_percent(PTEAL),
+    PTRWM_EXP = clean_percent(PTRWM_EXP),
+    PTRWM_HIGH = clean_percent(PTRWM_HIGH)
+  )
+
+# Averages per BCS and Non BCS 
+
+library(dplyr)
+
+schoolsimd3 %>%
+  group_by(BreakfastClubSchool_) %>%
+  summarise(
+    Avg_PTFSM = mean(PTFSM, na.rm = TRUE),
+    Avg_PTEAL = mean(PTEAL, na.rm = TRUE),
+    Avg_PTRWM_EXP = mean(PTRWM_EXP, na.rm = TRUE),
+    Avg_PTRWM_HIGH = mean(PTRWM_HIGH, na.rm = TRUE),
+    Avg_ABSENCE = mean(ABSENCE_, na.rm = TRUE),
+    Count = n()
+  )
+
+# Box plot
+
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+ggplot(summary_data, aes(x = Variable, y = Mean, fill = BreakfastClubSchool_)) +
+  geom_col(position = position_dodge(width = 0.9), alpha = 0.8, color = "black") + 
+  geom_errorbar(aes(ymin = Mean - SE, ymax = Mean + SE),
+                position = position_dodge(width = 0.9), width = 0.25) +
+  scale_fill_manual(
+    values = c("Breakfast Club" = "#327CA1", "Non-Breakfast Club" = "#E69F00")
+  ) +
+  scale_x_discrete(labels = c(
+    "PTFSM" = "Free School Meals (%)",
+    "PTEAL" = "English as Additional Language (%)",
+    "PTRWM_EXP" = "RWM Expected (%)",
+    "PTRWM_HIGH" = "RWM Higher (%)",
+    "ABSENCE_" = "Absence Rate (%)"
+  )) +
+  labs(
+    x = "Variable",
+    y = "Mean Value",
+    fill = "School Type",
+    title = "Mean Values by Breakfast Club School Type with Standard Errors"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),      # Center title
+    axis.text.x = element_text(angle = 45, hjust = 1)  # Tilt labels
+  )
+
+# Save the plot
+ggsave("Outputs/meanplott.png", width = 10, height = 6, dpi = 300, bg ="white")
+
+# Run a statistical test and see if there is a significance difference between 
+# BCS and non BCS 
+
+# Vector of variables to test
+vars_to_test <- c("PTFSM", "PTEAL", "PTRWM_EXP", "PTRWM_HIGH", "ABSENCE_")
+
+# Create a function to run t-test and tidy results
+run_ttest <- function(var) {
+  formula <- as.formula(paste(var, "~ BreakfastClubSchool_"))
+  test <- t.test(formula, data = schoolsimd3)
+  tibble(
+    Variable = var,
+    Mean_BCS = test$estimate[2],
+    Mean_NonBCS = test$estimate[1],
+    p_value = test$p.value,
+    t_statistic = test$statistic
+  )
+}
+
+# Run for each variable
+ttest_results <- lapply(vars_to_test, run_ttest) %>%
+  bind_rows()
+
+# View the result
+print(ttest_results)
+
+# Looking at Schools Data
+
+colnames(schoolswithimd)
+
+# Get rid of % symbols
+cols_to_clean <- c("PTFSM", "PTEAL", "PTRWM_EXP", "PTRWM_HIGH", "ABSENCE_")
+
+schoolswithimd[cols_to_clean] <- lapply(schoolswithimd[cols_to_clean], function(x) {
+  as.numeric(gsub("%", "", x))
+})
+
+# Average School Data per IMD Quintile 
+
+# Load dplyr
+library(dplyr)
+
+# Select relevant columns and group by Quintile
+quintile_means <- schoolswithimd %>%
+  group_by(Quintile) %>%
+  summarise(
+    avg_PTFSM = mean(PTFSM, na.rm = TRUE),
+    avg_PTEAL = mean(PTEAL, na.rm = TRUE),
+    avg_PTRWM_EXP = mean(PTRWM_EXP, na.rm = TRUE),
+    avg_PTRWM_HIGH = mean(PTRWM_HIGH, na.rm = TRUE),
+    avg_ABSENCE = mean(ABSENCE_, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# View the result
+print(quintile_means)
+
+# Check Skew for Correlation Test
+install.packages("moments") 
+library(moments)
+
+# List of variables to check
+vars_to_check <- c("PTFSM", "PTEAL", "PTRWM_EXP", "PTRWM_HIGH", "ABSENCE_")
+
+# Calculate skewness
+skew_values <- sapply(schoolswithimd[vars_to_check], skewness, na.rm = TRUE)
+
+# View results
+print(skew_values)
+
+# Absence very Skew. Transform
+# Log transformation to reduce skewness
+schoolswithimd$ABSENCE_log <- log1p(schoolswithimd$ABSENCE_)
+
+# List of variables to check
+vars_to_check2 <- c("PTFSM", "PTEAL", "PTRWM_EXP", "PTRWM_HIGH", "ABSENCE_log")
+
+# Calculate skewness
+skew_values <- sapply(schoolswithimd[vars_to_check2], skewness, na.rm = TRUE)
+
+# View results
+print(skew_values)
+
+# Select relevant columns including IMD and your variables
+vars <- c("Quintile", "PTFSM", "PTEAL", "PTRWM_EXP", "PTRWM_HIGH", "ABSENCE_log")
+
+# Compute Pearson correlations
+cor(schoolswithimd[vars], use = "complete.obs", method = "pearson")
+
+vars <- c("PTFSM", "PTEAL", "PTRWM_EXP", "PTRWM_HIGH", "ABSENCE_log")
+
+# Loop through variables and test against IMD
+for (var in vars) {
+  result <- cor.test(schoolswithimd$Quintile, schoolswithimd[[var]])
+  cat("\nCorrelation test for IMD vs", var, "\n")
+  print(result)
+}
+
+# Means per BCS/Non BCS per IMD Quintile 
+
+library(dplyr)
+
+# Group by IMD Quintile and Breakfast Club status
+schoolswithimd %>%
+  group_by(Quintile, BreakfastClubSchool_) %>%
+  summarise(
+    mean_PTFSM       = mean(PTFSM, na.rm = TRUE),
+    mean_PTEAL       = mean(PTEAL, na.rm = TRUE),
+    mean_PTRWM_EXP   = mean(PTRWM_EXP, na.rm = TRUE),
+    mean_PTRWM_HIGH  = mean(PTRWM_HIGH, na.rm = TRUE),
+    mean_ABSENCE_ = mean(ABSENCE_, na.rm = TRUE),
+    n_schools        = n()
+  ) %>%
+  arrange(Quintile, BreakfastClubSchool_)
+
+# Saving the clean version 
+write.csv(schoolswithimd, "schoolswithimd.csv", row.names = FALSE)
